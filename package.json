@@ -1,0 +1,22 @@
+{
+  "name": "chat-app-root",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "cd backend && npm run dev",
+    "client": "cd frontend && npm run dev",
+    "install-all": "npm install && cd frontend && npm install && cd backend && npm install",
+    "build": "npm run install-all && npm run build --prefix frontend",
+    "start": "node backend/src/server.js"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "lucide-react": "^0.446.0",
+    "axios": "^1.7.7",
+    "zustand": "^5.0.0",
+    "react-router-dom": "^6.26.2",
+    "react-hot-toast": "^2.4.1"
+  }
+}
