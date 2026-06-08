@@ -31,12 +31,16 @@ app.use("/api/auth",authRoutes)
 app.use("/api/user",userRoutes)
 app.use("/api/messages",messageRoutes)
 
-// Serve Frontend in Production
-if (process.env.NODE_ENV === "production") {
-    app.use(express.static(path.join(__dirname, "../../frontend/dist")));
+import fs from "fs"
+
+const distPath = path.join(__dirname, "../../frontend/dist");
+
+// Serve Frontend in Production if build files exist
+if (fs.existsSync(distPath)) {
+    app.use(express.static(distPath));
     
     app.get("*", (req, res) => {
-        res.sendFile(path.resolve(__dirname, "../../frontend", "dist", "index.html"));
+        res.sendFile(path.resolve(distPath, "index.html"));
     });
 } else {
     // 404 Handler
