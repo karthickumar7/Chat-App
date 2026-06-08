@@ -39,7 +39,7 @@ const distPath = path.join(__dirname, "../../frontend/dist");
 if (fs.existsSync(distPath)) {
     app.use(express.static(distPath));
     
-    app.get("/:any*", (req, res) => {
+    app.get("/*splat", (req, res) => {
         res.sendFile(path.resolve(distPath, "index.html"));
     });
 } else {
