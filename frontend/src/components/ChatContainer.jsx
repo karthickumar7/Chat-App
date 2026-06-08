@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useChatStore } from "../pages/useChatStore";
 import { useAuthStore } from "../pages/useAuthStore";
 import ChatHeader from "./ChatHeader";
@@ -19,6 +19,7 @@ const ChatContainer = () => {
   } = useChatStore();
   const { authUser } = useAuthStore();
   const messageEndRef = useRef(null);
+  const [activeImage, setActiveImage] = useState(null);
 
   useEffect(() => {
     getMessages(selectedUser._id);
@@ -104,7 +105,8 @@ const ChatContainer = () => {
                     <img
                       src={message.image}
                       alt="attachment"
-                      className="sm:max-w-[200px] rounded-md mb-1 object-cover"
+                      className="sm:max-w-[200px] rounded-md mb-1 object-cover cursor-zoom-in hover:opacity-90 transition-opacity"
+                      onClick={() => setActiveImage(message.image)}
                     />
                   )}
                   {message.text && <p>{message.text}</p>}
@@ -133,6 +135,25 @@ const ChatContainer = () => {
       </div>
 
       <MessageInput />
+
+      {/* Image Lightbox Modal */}
+      {activeImage && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/85 backdrop-blur-sm cursor-zoom-out p-4"
+          onClick={() => setActiveImage(null)}
+        >
+          <div className="relative max-w-full max-h-[85vh] flex items-center justify-center">
+            <img
+              src={activeImage}
+              alt="Fullscreen preview"
+              className="rounded-lg max-w-full max-h-[85vh] object-contain shadow-2xl transition-all"
+            />
+            <button className="absolute -top-12 right-0 text-white hover:text-primary transition-colors bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-full text-xs font-semibold">
+              ✕ Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

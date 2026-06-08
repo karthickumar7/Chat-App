@@ -1,8 +1,14 @@
 import { useRef, useState } from "react";
 import { useChatStore } from "../pages/useChatStore";
 import { useAuthStore } from "../pages/useAuthStore";
-import { Image, Send, X } from "lucide-react";
+import { Image, Send, X, Smile } from "lucide-react";
 import toast from "react-hot-toast";
+
+const popularEmojis = [
+  "😊", "😂", "🤣", "❤️", "👍", "🔥", "😍", "😭", 
+  "😘", "🥰", "🙌", "👏", "🎉", "✨", "🤔", "👀",
+  "😎", "🥺", "💯", "💀", "💩", "😮", "🙏", "❌"
+];
 
 const MessageInput = () => {
   const [text, setText] = useState("");
@@ -10,6 +16,7 @@ const MessageInput = () => {
   const fileInputRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const [isTypingLocal, setIsTypingLocal] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   const { sendMessage, selectedUser } = useChatStore();
   const { socket } = useAuthStore();
@@ -52,6 +59,10 @@ const MessageInput = () => {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const handleEmojiClick = (emoji) => {
+    setText((prev) => prev + emoji);
+  };
+
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!text.trim() && !imagePreview) return;
@@ -70,6 +81,7 @@ const MessageInput = () => {
 
       setText("");
       setImagePreview(null);
+      setShowEmojiPicker(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (error) {
       console.error("Failed to send message:", error);
@@ -99,7 +111,35 @@ const MessageInput = () => {
       )}
 
       <form onSubmit={handleSendMessage} className="flex items-center gap-2">
-        <div className="flex-1 flex gap-2">
+        <div className="flex-1 flex gap-2 relative">
+          {/* Emoji Picker Popover */}
+          {showEmojiPicker && (
+            <div className="absolute bottom-16 left-0 z-50 bg-base-200 border border-base-300 rounded-lg shadow-xl p-3 w-56">
+              <div className="grid grid-cols-6 gap-2">
+                {popularEmojis.map((emoji, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleEmojiClick(emoji)}
+                    className="hover:bg-base-300 p-1 rounded transition-colors text-lg flex items-center justify-center"
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <button
+            type="button"
+            className={`btn btn-circle btn-sm sm:btn-md ${
+              showEmojiPicker ? "text-primary bg-base-200" : "text-zinc-400"
+            }`}
+            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+          >
+            <Smile className="w-5 h-5" />
+          </button>
+
           <input
             type="text"
             className="input input-bordered rounded-lg input-sm sm:input-md flex-1"
@@ -118,7 +158,7 @@ const MessageInput = () => {
           <button
             type="button"
             className={`btn btn-circle btn-sm sm:btn-md ${
-              imagePreview ? "text-emerald-500" : "text-zinc-400"
+              imagePreview ? "text-emerald-500 bg-base-200" : "text-zinc-400"
             }`}
             onClick={() => fileInputRef.current?.click()}
           >
