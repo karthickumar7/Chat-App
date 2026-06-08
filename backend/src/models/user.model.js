@@ -32,7 +32,15 @@ const userSchema=new mongoose.Schema({
     },
     resetPasswordExpires:{
         type:Date
-    }
+    },
+    lastSeen:{
+        type:Date,
+        default:Date.now
+    },
+    blockedUsers:[{
+        type:mongoose.Schema.Types.ObjectId,
+        ref:"User"
+    }]
 },{timestamps:true});
 
 const User=mongoose.model("User",userSchema)

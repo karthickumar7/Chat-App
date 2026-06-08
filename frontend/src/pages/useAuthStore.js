@@ -317,4 +317,24 @@ export const useAuthStore = create((set, get) => ({
     socket.emit("endCall", { to: callPartner._id });
     stopAllCallSounds();
   },
+
+  blockUser: async (userId) => {
+    try {
+      const res = await axiosInstance.post(`/messages/block/${userId}`);
+      set({ authUser: { ...get().authUser, blockedUsers: res.data.blockedUsers } });
+      toast.success("User blocked");
+    } catch (error) {
+      toast.error(error.response?.data?.msg || "Failed to block user");
+    }
+  },
+
+  unblockUser: async (userId) => {
+    try {
+      const res = await axiosInstance.post(`/messages/unblock/${userId}`);
+      set({ authUser: { ...get().authUser, blockedUsers: res.data.blockedUsers } });
+      toast.success("User unblocked");
+    } catch (error) {
+      toast.error(error.response?.data?.msg || "Failed to unblock user");
+    }
+  },
 }));

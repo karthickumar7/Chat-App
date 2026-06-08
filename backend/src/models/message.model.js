@@ -30,6 +30,13 @@ const messageSchema=new mongoose.Schema({
         type:Boolean,
         default:false
     },
+    replyTo:{
+        type:mongoose.Schema.Types.ObjectId,
+        ref:"Message"
+    },
+    expiresAt:{
+        type:Date
+    },
     reactions:[{
         userId:{
             type:mongoose.Schema.Types.ObjectId,

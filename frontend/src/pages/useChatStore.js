@@ -7,21 +7,46 @@ import { useThemeStore } from "../components/useThemeStore";
 const playSendSound = () => {
   if (useThemeStore.getState().soundMuted) return;
   try {
+    const preset = useThemeStore.getState().soundPreset || "classic";
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain);
     gain.connect(ctx.destination);
     
-    // Whoosh / rising pop sound for sending
-    osc.frequency.setValueAtTime(350, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(700, ctx.currentTime + 0.08);
-    
-    gain.gain.setValueAtTime(0.04, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
-    
-    osc.start();
-    osc.stop(ctx.currentTime + 0.12);
+    if (preset === "retro") {
+      osc.type = "square";
+      osc.frequency.setValueAtTime(150, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.06);
+      gain.gain.setValueAtTime(0.03, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.08);
+    } else if (preset === "bubble") {
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(600, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.05);
+      gain.gain.setValueAtTime(0.05, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.07);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.07);
+    } else if (preset === "digital") {
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(980, ctx.currentTime);
+      gain.gain.setValueAtTime(0.03, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.05);
+    } else {
+      // classic / default
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(350, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(700, ctx.currentTime + 0.08);
+      gain.gain.setValueAtTime(0.04, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.12);
+    }
   } catch (e) {
     console.error("Audio error:", e);
   }
@@ -30,21 +55,55 @@ const playSendSound = () => {
 const playReceiveSound = () => {
   if (useThemeStore.getState().soundMuted) return;
   try {
+    const preset = useThemeStore.getState().soundPreset || "classic";
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
     
-    // Dual-tone high pitch ping sound for receiving
-    osc.frequency.setValueAtTime(550, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.1);
-    
-    gain.gain.setValueAtTime(0.06, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
-    
-    osc.start();
-    osc.stop(ctx.currentTime + 0.2);
+    const playTone = (freq, type, duration, delay = 0, volume = 0.05) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+      gain.gain.setValueAtTime(volume, ctx.currentTime + delay);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + duration);
+      osc.start(ctx.currentTime + delay);
+      osc.stop(ctx.currentTime + delay + duration);
+    };
+
+    if (preset === "retro") {
+      playTone(400, "square", 0.06, 0, 0.03);
+      playTone(600, "square", 0.08, 0.06, 0.03);
+    } else if (preset === "bubble") {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(800, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1600, ctx.currentTime + 0.08);
+      gain.gain.setValueAtTime(0.06, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.1);
+    } else if (preset === "digital") {
+      playTone(1200, "triangle", 0.05, 0, 0.03);
+      playTone(1500, "triangle", 0.05, 0.04, 0.03);
+      playTone(1800, "triangle", 0.07, 0.08, 0.03);
+    } else {
+      // classic / default
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(550, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.1);
+      gain.gain.setValueAtTime(0.06, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.2);
+    }
   } catch (e) {
     console.error("Audio error:", e);
   }
@@ -57,6 +116,13 @@ export const useChatStore = create((set, get) => ({
   isUsersLoading: false,
   isMessagesLoading: false,
   typingUsers: {}, // Maps userId -> boolean
+  replyingToMessage: null,
+  globalSearchUsersList: [],
+  globalSearchMessagesList: [],
+  isGlobalUsersLoading: false,
+  isGlobalMessagesLoading: false,
+
+  setReplyingToMessage: (message) => set({ replyingToMessage: message }),
 
   getUsers: async () => {
     set({ isUsersLoading: true });
@@ -84,10 +150,17 @@ export const useChatStore = create((set, get) => ({
   },
 
   sendMessage: async (messageData) => {
-    const { selectedUser, messages } = get();
+    const { selectedUser, messages, replyingToMessage } = get();
     try {
-      const res = await axiosInstance.post(`/messages/send/${selectedUser._id}`, messageData);
-      set({ messages: [...messages, res.data.message] });
+      const payload = { ...messageData };
+      if (replyingToMessage) {
+        payload.replyTo = replyingToMessage._id;
+      }
+      const res = await axiosInstance.post(`/messages/send/${selectedUser._id}`, payload);
+      set({ 
+        messages: [...messages, res.data.message],
+        replyingToMessage: null
+      });
       playSendSound();
     } catch (error) {
       toast.error(error.response?.data?.msg || "Failed to send message");
@@ -146,6 +219,38 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
+  globalSearchUsers: async (query) => {
+    if (!query) {
+      set({ globalSearchUsersList: [] });
+      return;
+    }
+    set({ isGlobalUsersLoading: true });
+    try {
+      const res = await axiosInstance.get(`/messages/users/search?query=${query}`);
+      set({ globalSearchUsersList: res.data.users });
+    } catch (error) {
+      console.error("Global user search failed:", error);
+    } finally {
+      set({ isGlobalUsersLoading: false });
+    }
+  },
+
+  globalSearchMessages: async (query) => {
+    if (!query) {
+      set({ globalSearchMessagesList: [] });
+      return;
+    }
+    set({ isGlobalMessagesLoading: true });
+    try {
+      const res = await axiosInstance.get(`/messages/search/all?query=${query}`);
+      set({ globalSearchMessagesList: res.data.messages });
+    } catch (error) {
+      console.error("Global message search failed:", error);
+    } finally {
+      set({ isGlobalMessagesLoading: false });
+    }
+  },
+
   subscribeToMessages: () => {
     const { selectedUser } = get();
     if (!selectedUser) return;
@@ -159,7 +264,6 @@ export const useChatStore = create((set, get) => ({
 
       set({ messages: [...get().messages, newMessage] });
       playReceiveSound();
-      // Auto-read incoming message if chat is active
       get().markMessagesAsRead(selectedUser._id);
     });
 
@@ -229,5 +333,5 @@ export const useChatStore = create((set, get) => ({
     socket.off("chatCleared");
   },
 
-  setSelectedUser: (selectedUser) => set({ selectedUser, typingUsers: {} }),
+  setSelectedUser: (selectedUser) => set({ selectedUser, typingUsers: {}, replyingToMessage: null }),
 }));

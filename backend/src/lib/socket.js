@@ -1,6 +1,7 @@
 import { Server } from "socket.io";
 import http from "http";
 import express from "express";
+import User from "../models/user.model.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -16,7 +17,6 @@ export const getReceiverSocketId = (receiverId) => {
   return userSocketMap[receiverId];
 };
 
-// Map of userId -> socketId
 const userSocketMap = {};
 
 io.on("connection", (socket) => {
@@ -25,9 +25,9 @@ io.on("connection", (socket) => {
   const userId = socket.handshake.query.userId;
   if (userId && userId !== "undefined") {
     userSocketMap[userId] = socket.id;
+    User.findByIdAndUpdate(userId, { lastSeen: new Date() }).catch((e) => console.log(e));
   }
 
-  // Broadcast list of online user IDs
   io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
   socket.on("typing", ({ receiverId }) => {
@@ -44,7 +44,17 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("callUser", ({ userToCall, from, name, pic, offer }) => {
+  socket.on("callUser", async ({ userToCall, from, name, pic, offer }) => {
+    try {
+      const receiver = await User.findById(userToCall);
+      if (receiver && receiver.blockedUsers.includes(from)) {
+        socket.emit("callRejected");
+        return;
+      }
+    } catch (e) {
+      console.error("Socket call block check error:", e);
+    }
+
     const receiverSocketId = getReceiverSocketId(userToCall);
     if (receiverSocketId) {
       io.to(receiverSocketId).emit("incomingCall", { from, name, pic, offer });
@@ -83,6 +93,7 @@ io.on("connection", (socket) => {
     console.log("A user disconnected", socket.id);
     if (userId) {
       delete userSocketMap[userId];
+      User.findByIdAndUpdate(userId, { lastSeen: new Date() }).catch((e) => console.log(e));
     }
     io.emit("getOnlineUsers", Object.keys(userSocketMap));
   });

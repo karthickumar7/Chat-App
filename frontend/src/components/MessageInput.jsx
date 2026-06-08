@@ -10,7 +10,7 @@ const popularEmojis = [
   "😎", "🥺", "💯", "💀", "💩", "😮", "🙏", "❌"
 ];
 
-const MessageInput = () => {
+const MessageInput = ({ disappearingTime }) => {
   const [text, setText] = useState("");
   const [imagePreview, setImagePreview] = useState(null);
   const [filePreview, setFilePreview] = useState(null);
@@ -28,8 +28,8 @@ const MessageInput = () => {
   const audioChunksRef = useRef([]);
   const recordingIntervalRef = useRef(null);
 
-  const { sendMessage, selectedUser } = useChatStore();
-  const { socket } = useAuthStore();
+  const { sendMessage, selectedUser, replyingToMessage, setReplyingToMessage } = useChatStore();
+  const { socket, authUser } = useAuthStore();
 
   useEffect(() => {
     return () => {
@@ -122,7 +122,8 @@ const MessageInput = () => {
         reader.onloadend = async () => {
           const base64Audio = reader.result;
           await sendMessage({
-            audio: base64Audio
+            audio: base64Audio,
+            expiresIn: disappearingTime
           });
         };
         stream.getTracks().forEach((track) => track.stop());
@@ -170,6 +171,7 @@ const MessageInput = () => {
         image: imagePreview,
         file: filePreview,
         fileName: fileName,
+        expiresIn: disappearingTime
       });
 
       setText("");
@@ -184,8 +186,30 @@ const MessageInput = () => {
     }
   };
 
+  if (!selectedUser) return null;
+
   return (
     <div className="p-4 w-full">
+      {/* Replying Quote Preview Banner */}
+      {replyingToMessage && (
+        <div className="mb-2 p-2 bg-base-200 border-l-4 border-primary rounded flex items-center justify-between animate-in slide-in-from-bottom-2 duration-150 text-xs shadow-sm">
+          <div className="min-w-0 flex-1 pr-2">
+            <span className="font-semibold text-primary block">
+              Replying to {replyingToMessage.senderId === authUser?._id ? "yourself" : replyingToMessage.senderId?.fullName || selectedUser.fullName}
+            </span>
+            <p className="truncate opacity-75 mt-0.5 text-[11px]">
+              {replyingToMessage.text || (replyingToMessage.image ? "📷 Photo" : replyingToMessage.file ? "📄 Document" : replyingToMessage.audio ? "🎵 Voice Note" : "")}
+            </p>
+          </div>
+          <button 
+            onClick={() => setReplyingToMessage(null)}
+            className="btn btn-ghost btn-circle btn-xs text-base-content/60 hover:text-base-content"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {imagePreview && (
         <div className="mb-3 flex items-center gap-2">
           <div className="relative">
@@ -196,8 +220,7 @@ const MessageInput = () => {
             />
             <button
               onClick={removeImage}
-              className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-base-300
-              flex items-center justify-center"
+              className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-base-300 flex items-center justify-center"
               type="button"
             >
               <X className="size-3" />
@@ -271,7 +294,7 @@ const MessageInput = () => {
           ) : (
             <input
               type="text"
-              className="input input-bordered rounded-lg input-sm sm:input-md flex-1"
+              className="input input-bordered rounded-lg input-sm sm:input-md flex-1 focus:outline-none"
               placeholder="Type a message..."
               value={text}
               onChange={handleTextChange}
@@ -337,4 +360,5 @@ const MessageInput = () => {
     </div>
   );
 };
+
 export default MessageInput;

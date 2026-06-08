@@ -49,9 +49,18 @@ if (fs.existsSync(distPath)) {
     app.use((req, res) => res.status(404).json({ msg: "Route not found" }));
 }
 
+import Message from "./models/message.model.js"
+
 const startServer = async () => {
     try {
         await connectDB();
+        // Clean up expired self-destructing messages
+        try {
+            await Message.deleteMany({ expiresAt: { $lt: new Date() } });
+            console.log("Expired disappearing messages cleaned up.");
+        } catch (dbErr) {
+            console.error("Failed to clean up expired messages:", dbErr);
+        }
         server.listen(PORT, () => {
             console.log(`App is Running on PORT ${PORT}`);
         });

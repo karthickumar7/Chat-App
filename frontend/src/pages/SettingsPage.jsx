@@ -2,7 +2,7 @@ import { useThemeStore } from "../components/useThemeStore";
 import { THEMES } from "../components";
 
 const SettingsPage = () => {
-  const { theme, setTheme, soundMuted, toggleSoundMuted } = useThemeStore();
+  const { theme, setTheme, soundMuted, toggleSoundMuted, soundPreset, setSoundPreset } = useThemeStore();
 
   return (
     <div className="h-screen container mx-auto px-4 pt-20 max-w-5xl">
@@ -34,8 +34,8 @@ const SettingsPage = () => {
           ))}
         </div>
 
-        {/* Notification Sound Toggle */}
-        <div className="bg-base-200 p-4 rounded-xl space-y-2">
+        {/* Notification Sound Toggle & Preset Selector */}
+        <div className="bg-base-200 p-4 rounded-xl space-y-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-semibold text-sm">Notification Sounds</h3>
@@ -48,6 +48,28 @@ const SettingsPage = () => {
               onChange={toggleSoundMuted}
             />
           </div>
+
+          {!soundMuted && (
+            <div className="border-t border-base-300 pt-3">
+              <h4 className="font-semibold text-xs mb-2 text-base-content/85">Sound Preset Alert Synthesizer</h4>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { id: "classic", label: "Classic Tone" },
+                  { id: "retro", label: "8-Bit Retro" },
+                  { id: "bubble", label: "Water Bubble" },
+                  { id: "digital", label: "Digital Trill" }
+                ].map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => setSoundPreset(p.id)}
+                    className={`btn btn-xs sm:btn-sm font-semibold ${soundPreset === p.id ? "btn-primary" : "btn-ghost bg-base-300 hover:bg-base-300/80"} text-xs rounded-lg`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Preview Section */}
@@ -73,4 +95,4 @@ const SettingsPage = () => {
   );
 };
 
-export default SettingsPage
+export default SettingsPage;

@@ -18,12 +18,19 @@ export const getMessages = async (req, res) => {
     try {
         const { id: userToChatId } = req.params;
         const myId = req.user._id;
+
         const messages = await Message.find({
             $or: [
                 { senderId: myId, receiverId: userToChatId },
                 { senderId: userToChatId, receiverId: myId }
+            ],
+            $or: [
+                { expiresAt: { $exists: false } },
+                { expiresAt: null },
+                { expiresAt: { $gt: new Date() } }
             ]
-        })
+        }).populate("replyTo");
+
         return res.status(200).json({ messages: messages, success: true })
     } catch (err) {
         console.error("Error in getMessages: ", err.message);
@@ -33,7 +40,7 @@ export const getMessages = async (req, res) => {
 
 export const sendMessage = async (req, res) => {
     try {
-        const { text, image, file, fileName, audio } = req.body;
+        const { text, image, file, fileName, audio, replyTo, expiresIn } = req.body;
         if (!text && !image && !file && !audio) {
             return res.status(400).json({
                 msg: "Message content is required",
@@ -42,6 +49,22 @@ export const sendMessage = async (req, res) => {
         }
         const { id: receiverId } = req.params;
         const senderId = req.user._id;
+
+        const sender = await User.findById(senderId);
+        const receiver = await User.findById(receiverId);
+
+        if (!sender || !receiver) {
+            return res.status(404).json({ msg: "User not found", success: false });
+        }
+
+        // Check blocks
+        if (receiver.blockedUsers.includes(senderId)) {
+            return res.status(403).json({ msg: "You have been blocked by this user", success: false });
+        }
+        if (sender.blockedUsers.includes(receiverId)) {
+            return res.status(403).json({ msg: "You have blocked this user. Unblock them to send messages.", success: false });
+        }
+
         let imageurl;
         if (image) {
             const uploadResponse = await cloudinary.uploader.upload(image);
@@ -61,6 +84,12 @@ export const sendMessage = async (req, res) => {
             });
             audiourl = uploadResponse.secure_url;
         }
+
+        let expiresAt = null;
+        if (expiresIn) {
+            expiresAt = new Date(Date.now() + expiresIn * 1000);
+        }
+
         const newMesage = new Message({
             senderId,
             receiverId,
@@ -68,14 +97,32 @@ export const sendMessage = async (req, res) => {
             image: imageurl,
             file: fileurl,
             fileName,
-            audio: audiourl
+            audio: audiourl,
+            replyTo,
+            expiresAt
         })
         await newMesage.save();
+        await newMesage.populate("replyTo");
 
         // Real-time notification using socket.io
         const receiverSocketId = getReceiverSocketId(receiverId);
         if (receiverSocketId) {
             io.to(receiverSocketId).emit("newMessage", newMesage);
+        }
+
+        // Auto-delete scheduling in memory
+        if (expiresIn) {
+            setTimeout(async () => {
+                try {
+                    await Message.findByIdAndDelete(newMesage._id);
+                    const rSocket = getReceiverSocketId(receiverId);
+                    const sSocket = getReceiverSocketId(senderId);
+                    if (rSocket) io.to(rSocket).emit("messageDeleted", newMesage._id);
+                    if (sSocket) io.to(sSocket).emit("messageDeleted", newMesage._id);
+                } catch (e) {
+                    console.error("Auto-delete message error:", e);
+                }
+            }, expiresIn * 1000);
         }
 
         return res.status(201).json({ message: newMesage, success: true })
@@ -201,6 +248,94 @@ export const clearChat = async (req, res) => {
         return res.status(200).json({ msg: "Chat cleared successfully", success: true });
     } catch (err) {
         console.error("Error in clearChat: ", err.message);
+        return res.status(500).json({ msg: err.message, success: false });
+    }
+};
+
+export const blockUser = async (req, res) => {
+    try {
+        const { id: userToBlockId } = req.params;
+        const myId = req.user._id;
+
+        if (userToBlockId === myId.toString()) {
+            return res.status(400).json({ msg: "You cannot block yourself", success: false });
+        }
+
+        const user = await User.findById(myId);
+        if (!user.blockedUsers.includes(userToBlockId)) {
+            user.blockedUsers.push(userToBlockId);
+            await user.save();
+        }
+
+        return res.status(200).json({ msg: "User blocked successfully", blockedUsers: user.blockedUsers, success: true });
+    } catch (err) {
+        console.error("Error in blockUser: ", err.message);
+        return res.status(500).json({ msg: err.message, success: false });
+    }
+};
+
+export const unblockUser = async (req, res) => {
+    try {
+        const { id: userToUnblockId } = req.params;
+        const myId = req.user._id;
+
+        const user = await User.findById(myId);
+        user.blockedUsers = user.blockedUsers.filter(id => id.toString() !== userToUnblockId);
+        await user.save();
+
+        return res.status(200).json({ msg: "User unblocked successfully", blockedUsers: user.blockedUsers, success: true });
+    } catch (err) {
+        console.error("Error in unblockUser: ", err.message);
+        return res.status(500).json({ msg: err.message, success: false });
+    }
+};
+
+export const globalSearchUsers = async (req, res) => {
+    try {
+        const { query } = req.query;
+        const myId = req.user._id;
+
+        if (!query) {
+            return res.status(200).json({ users: [], success: true });
+        }
+
+        const searchedUsers = await User.find({
+            _id: { $ne: myId },
+            $or: [
+                { fullName: { $regex: query, $options: "i" } },
+                { email: { $regex: query, $options: "i" } }
+            ]
+        }).select("-password");
+
+        return res.status(200).json({ users: searchedUsers, success: true });
+    } catch (err) {
+        console.error("Error in globalSearchUsers: ", err.message);
+        return res.status(500).json({ msg: err.message, success: false });
+    }
+};
+
+export const globalSearchMessages = async (req, res) => {
+    try {
+        const { query } = req.query;
+        const myId = req.user._id;
+
+        if (!query) {
+            return res.status(200).json({ messages: [], success: true });
+        }
+
+        const messages = await Message.find({
+            $or: [
+                { senderId: myId },
+                { receiverId: myId }
+            ],
+            text: { $regex: query, $options: "i" }
+        }).populate("senderId", "fullName profilePic")
+          .populate("receiverId", "fullName profilePic")
+          .sort({ createdAt: -1 });
+
+        return res.status(200).json({ messages, success: true });
+    } catch (err) {
+        console.error("Error in globalSearchMessages: ", err.message);
         return res.status(500).json({ msg: err.message, success: false });
     }
 };
