@@ -20,8 +20,10 @@ const Sidebar = () => {
   }, [getUsers, getStories]);
 
   const filteredUsers = users.filter((user) => {
-    const matchesSearch = user.fullName.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          (user.nickName && user.nickName.toLowerCase().includes(searchQuery.toLowerCase()));
+    const fullName = user.fullName || "";
+    const nickName = user.nickName || "";
+    const matchesSearch = fullName.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          nickName.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesOnline = showOnlineOnly ? onlineUsers.includes(user._id) : true;
     return matchesSearch && matchesOnline;
   });
