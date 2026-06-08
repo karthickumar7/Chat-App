@@ -44,6 +44,34 @@ io.on("connection", (socket) => {
     }
   });
 
+  socket.on("callUser", ({ userToCall, from, name, pic }) => {
+    const receiverSocketId = getReceiverSocketId(userToCall);
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("incomingCall", { from, name, pic });
+    }
+  });
+
+  socket.on("acceptCall", ({ to }) => {
+    const callerSocketId = getReceiverSocketId(to);
+    if (callerSocketId) {
+      io.to(callerSocketId).emit("callAccepted");
+    }
+  });
+
+  socket.on("rejectCall", ({ to }) => {
+    const callerSocketId = getReceiverSocketId(to);
+    if (callerSocketId) {
+      io.to(callerSocketId).emit("callRejected");
+    }
+  });
+
+  socket.on("endCall", ({ to }) => {
+    const otherSocketId = getReceiverSocketId(to);
+    if (otherSocketId) {
+      io.to(otherSocketId).emit("callEnded");
+    }
+  });
+
   socket.on("disconnect", () => {
     console.log("A user disconnected", socket.id);
     if (userId) {

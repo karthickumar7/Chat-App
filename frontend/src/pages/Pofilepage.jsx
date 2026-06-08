@@ -10,6 +10,7 @@ const ProfilePage = () => {
   // Profile fields state
   const [fullName, setFullName] = useState(authUser?.fullName || "");
   const [nickName, setNickName] = useState(authUser?.nickName || "");
+  const [status, setStatus] = useState(authUser?.status || "Hey there! I am using Chat App.");
 
   // Password fields state
   const [currentPassword, setCurrentPassword] = useState("");
@@ -38,6 +39,7 @@ const ProfilePage = () => {
     await updateProfile({
       fullName: fullName.trim(),
       nickName: nickName.trim(),
+      status: status.trim(),
     });
   };
 
@@ -125,6 +127,19 @@ const ProfilePage = () => {
                 value={nickName}
                 onChange={(e) => setNickName(e.target.value)}
                 placeholder="Johnny"
+              />
+            </div>
+
+            <div className="form-control">
+              <label className="label text-sm font-semibold flex gap-2">
+                <Tag className="w-4 h-4 text-primary" /> Status Message
+              </label>
+              <input
+                type="text"
+                className="input input-bordered w-full"
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                placeholder="Hey there! I am using Chat App."
               />
             </div>
 

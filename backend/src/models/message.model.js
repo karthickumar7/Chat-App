@@ -17,6 +17,15 @@ const messageSchema=new mongoose.Schema({
     image:{
         type:String,
     },
+    file:{
+        type:String,
+    },
+    fileName:{
+        type:String,
+    },
+    audio:{
+        type:String,
+    },
 
 },{timestamps:true})
 

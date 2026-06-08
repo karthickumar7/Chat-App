@@ -4,7 +4,7 @@ import { useAuthStore } from "../pages/useAuthStore";
 import ChatHeader from "./ChatHeader";
 import MessageInput from "./MessageInput";
 import MessageSkeleton from "./MessageSkeleton";
-import { Trash2 } from "lucide-react";
+import { Trash2, FileText } from "lucide-react";
 
 const ChatContainer = () => {
   const {
@@ -108,6 +108,28 @@ const ChatContainer = () => {
                       className="sm:max-w-[200px] rounded-md mb-1 object-cover cursor-zoom-in hover:opacity-90 transition-opacity"
                       onClick={() => setActiveImage(message.image)}
                     />
+                  )}
+                  {message.file && (
+                    <div className="flex items-center gap-2 bg-base-300 border border-base-300 rounded-lg p-2 my-1 max-w-xs shadow-sm text-base-content">
+                      <FileText className="w-8 h-8 text-primary shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-semibold truncate">{message.fileName || "Document"}</div>
+                        <span className="text-[10px] opacity-65">PDF/Document</span>
+                      </div>
+                      <a 
+                        href={message.file} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="btn btn-xs btn-primary font-bold text-[10px] shrink-0"
+                      >
+                        Open
+                      </a>
+                    </div>
+                  )}
+                  {message.audio && (
+                    <div className="flex items-center gap-1 my-1 p-1 bg-base-300 rounded-lg max-w-xs">
+                      <audio src={message.audio} controls className="max-w-[200px] h-8 text-xs focus:outline-none" />
+                    </div>
                   )}
                   {message.text && <p>{message.text}</p>}
                 </div>

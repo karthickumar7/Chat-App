@@ -5,6 +5,37 @@ import { io } from "socket.io-client";
 
 const BASE_URL = import.meta.env.MODE === "development" ? "http://localhost:5001" : "/";
 
+let ringtoneInterval = null;
+const playCallRingingSound = () => {
+  if (ringtoneInterval) return;
+  const playTone = () => {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.setValueAtTime(440, ctx.currentTime);
+      osc.frequency.linearRampToValueAtTime(480, ctx.currentTime + 0.3);
+      gain.gain.setValueAtTime(0.04, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.2);
+      osc.start();
+      osc.stop(ctx.currentTime + 1.2);
+    } catch (e) {
+      console.log(e);
+    }
+  };
+  playTone();
+  ringtoneInterval = setInterval(playTone, 2000);
+};
+
+const stopAllCallSounds = () => {
+  if (ringtoneInterval) {
+    clearInterval(ringtoneInterval);
+    ringtoneInterval = null;
+  }
+};
+
 export const useAuthStore = create((set, get) => ({
   authUser: null,
   isSigningUp: false,
@@ -13,6 +44,13 @@ export const useAuthStore = create((set, get) => ({
   isCheckingAuth: true,
   socket: null,
   onlineUsers: [],
+  
+  // Voice Calling State
+  activeCall: false,
+  callStatus: "idle", // idle, calling, ringing, connected
+  isIncoming: false,
+  isCaller: false,
+  callPartner: null,
 
   checkAuth: async () => {
     try {
@@ -128,13 +166,129 @@ export const useAuthStore = create((set, get) => ({
     newSocket.on("getOnlineUsers", (userIds) => {
       set({ onlineUsers: userIds });
     });
+
+    // Real-time voice call signaling handlers
+    newSocket.on("incomingCall", ({ from, name, pic }) => {
+      set({
+        activeCall: true,
+        callStatus: "ringing",
+        isIncoming: true,
+        isCaller: false,
+        callPartner: { _id: from, fullName: name, profilePic: pic }
+      });
+      playCallRingingSound();
+    });
+
+    newSocket.on("callAccepted", () => {
+      set({ callStatus: "connected" });
+      stopAllCallSounds();
+    });
+
+    newSocket.on("callRejected", () => {
+      set({
+        activeCall: false,
+        callStatus: "idle",
+        isIncoming: false,
+        isCaller: false,
+        callPartner: null
+      });
+      stopAllCallSounds();
+      toast.error("Call declined");
+    });
+
+    newSocket.on("callEnded", () => {
+      set({
+        activeCall: false,
+        callStatus: "idle",
+        isIncoming: false,
+        isCaller: false,
+        callPartner: null
+      });
+      stopAllCallSounds();
+      toast("Call ended");
+    });
   },
 
   disconnectSocket: () => {
     const { socket } = get();
     if (socket && socket.connected) {
+      socket.off("incomingCall");
+      socket.off("callAccepted");
+      socket.off("callRejected");
+      socket.off("callEnded");
       socket.disconnect();
     }
-    set({ socket: null });
+    stopAllCallSounds();
+    set({ 
+      socket: null,
+      activeCall: false,
+      callStatus: "idle",
+      isIncoming: false,
+      isCaller: false,
+      callPartner: null
+    });
+  },
+
+  startCall: (userToCall) => {
+    const { socket, authUser } = get();
+    if (!socket || !authUser) return;
+
+    set({
+      activeCall: true,
+      callStatus: "calling",
+      isIncoming: false,
+      isCaller: true,
+      callPartner: userToCall
+    });
+
+    socket.emit("callUser", {
+      userToCall: userToCall._id,
+      from: authUser._id,
+      name: authUser.fullName,
+      pic: authUser.profilePic
+    });
+
+    playCallRingingSound();
+  },
+
+  acceptIncomingCall: () => {
+    const { socket, callPartner } = get();
+    if (!socket || !callPartner) return;
+
+    set({ callStatus: "connected" });
+    socket.emit("acceptCall", { to: callPartner._id });
+    stopAllCallSounds();
+  },
+
+  rejectIncomingCall: () => {
+    const { socket, callPartner } = get();
+    if (!socket || !callPartner) return;
+
+    set({
+      activeCall: false,
+      callStatus: "idle",
+      isIncoming: false,
+      isCaller: false,
+      callPartner: null
+    });
+
+    socket.emit("rejectCall", { to: callPartner._id });
+    stopAllCallSounds();
+  },
+
+  hangupCall: () => {
+    const { socket, callPartner } = get();
+    if (!socket || !callPartner) return;
+
+    set({
+      activeCall: false,
+      callStatus: "idle",
+      isIncoming: false,
+      isCaller: false,
+      callPartner: null
+    });
+
+    socket.emit("endCall", { to: callPartner._id });
+    stopAllCallSounds();
   },
 }));

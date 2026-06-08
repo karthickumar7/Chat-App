@@ -30,6 +30,7 @@ export const signup = async (req, res) => {
             email: user.email,
             profilePic: user.profilePic,
             nickName: user.nickName,
+            status: user.status,
             success: true,
         });
     } catch (err) {
@@ -59,6 +60,7 @@ export const login = async (req, res) => {
                 email: user.email,
                 profilePic: user.profilePic,
                 nickName: user.nickName,
+                status: user.status,
             },
             success: true,
         });
@@ -78,7 +80,7 @@ export const logout = async (req, res) => {
 
 export const updateProfile = async (req, res) => {
     try {
-        const { profilePic, fullName, nickName } = req.body;
+        const { profilePic, fullName, nickName, status } = req.body;
         const userId = req.user._id;
 
         const updateFields = {};
@@ -94,6 +96,9 @@ export const updateProfile = async (req, res) => {
         }
         if (nickName !== undefined) {
             updateFields.nickName = nickName.trim();
+        }
+        if (status !== undefined) {
+            updateFields.status = status.trim();
         }
 
         const updateduser = await User.findByIdAndUpdate(userId, updateFields, { new: true }).select("-password");

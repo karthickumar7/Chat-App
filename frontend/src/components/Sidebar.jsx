@@ -1,21 +1,48 @@
 import { useEffect, useState } from "react";
 import { useChatStore } from "../pages/useChatStore";
 import { useAuthStore } from "../pages/useAuthStore";
+import { useStoryStore } from "../pages/useStoryStore";
+import StoriesViewer from "./StoriesViewer";
 import SidebarSkeleton from "./SidebarSkeleton";
 import { Users } from "lucide-react";
 
 const Sidebar = () => {
   const { getUsers, users, selectedUser, setSelectedUser, isUsersLoading } = useChatStore();
-  const { onlineUsers } = useAuthStore();
+  const { onlineUsers, authUser } = useAuthStore();
+  const { getStories, stories, uploadStory } = useStoryStore();
   const [showOnlineOnly, setShowOnlineOnly] = useState(false);
+  const [activeStoryUser, setActiveStoryUser] = useState(null);
 
   useEffect(() => {
     getUsers();
-  }, [getUsers]);
+    getStories();
+  }, [getUsers, getStories]);
 
   const filteredUsers = showOnlineOnly
     ? users.filter((user) => onlineUsers.includes(user._id))
     : users;
+
+  const handleStoryUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      await uploadStory(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const uniqueStoryUsers = [];
+  const seenUsers = new Set();
+  
+  stories.forEach((story) => {
+    if (story.userId && story.userId._id !== authUser?._id) {
+      if (!seenUsers.has(story.userId._id)) {
+        seenUsers.add(story.userId._id);
+        uniqueStoryUsers.push(story);
+      }
+    }
+  });
 
   if (isUsersLoading) return <SidebarSkeleton />;
 
@@ -41,6 +68,47 @@ const Sidebar = () => {
           </label>
           <span className="text-xs text-zinc-500">({onlineUsers.length - 1} online)</span>
         </div>
+      </div>
+
+      {/* Stories Carousel */}
+      <div className="p-3 border-b border-base-300 flex gap-3 overflow-x-auto scrollbar-none max-w-full">
+        {/* My Story Circle */}
+        {authUser && (
+          <div className="flex flex-col items-center gap-1 min-w-[56px] text-center">
+            <div className="relative">
+              <img
+                src={authUser.profilePic || "/avatar.png"}
+                alt="My Profile"
+                className="w-10 h-10 rounded-full object-cover border border-base-300"
+              />
+              <label className="absolute -bottom-1 -right-1 bg-primary w-4.5 h-4.5 rounded-full flex items-center justify-center cursor-pointer text-primary-content text-[11px] font-bold shadow hover:scale-110 transition-transform">
+                +
+                <input type="file" accept="image/*" className="hidden" onChange={handleStoryUpload} />
+              </label>
+            </div>
+            <span className="text-[9px] opacity-75 hidden lg:inline truncate w-12">My Story</span>
+          </div>
+        )}
+
+        {/* Stories from contacts */}
+        {uniqueStoryUsers.map((story) => (
+          <button
+            key={story._id}
+            onClick={() => setActiveStoryUser(story.userId._id)}
+            className="flex flex-col items-center gap-1 min-w-[56px] text-center"
+          >
+            <div className="w-10 h-10 rounded-full p-[2px] bg-gradient-to-tr from-yellow-500 via-pink-500 to-purple-600">
+              <img
+                src={story.userId.profilePic || "/avatar.png"}
+                alt={story.userId.fullName}
+                className="w-full h-full rounded-full object-cover border border-base-100"
+              />
+            </div>
+            <span className="text-[9px] truncate w-12 hidden lg:inline">
+              {story.userId.nickName || story.userId.fullName.split(" ")[0]}
+            </span>
+          </button>
+        ))}
       </div>
 
       {/* Users List */}
@@ -69,8 +137,8 @@ const Sidebar = () => {
               {/* User details - large screens only */}
               <div className="hidden lg:block text-left min-w-0">
                 <div className="font-medium truncate">{user.fullName}</div>
-                <div className="text-sm text-zinc-400">
-                  {isOnline ? "Online" : "Offline"}
+                <div className="text-xs text-zinc-400 truncate w-44">
+                  {user.status || (isOnline ? "Online" : "Offline")}
                 </div>
               </div>
             </button>
@@ -83,6 +151,13 @@ const Sidebar = () => {
           </div>
         )}
       </div>
+
+      {activeStoryUser && (
+        <StoriesViewer
+          stories={stories.filter((s) => s.userId?._id === activeStoryUser)}
+          onClose={() => setActiveStoryUser(null)}
+        />
+      )}
     </aside>
   );
 };

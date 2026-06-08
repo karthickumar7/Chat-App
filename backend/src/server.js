@@ -9,6 +9,7 @@ import cookieParser from "cookie-parser";
 import cors from "cors"
 import userRoutes from "./routes/user.route.js"
 import messageRoutes from "./routes/message.route.js"
+import storyRoutes from "./routes/story.route.js"
 import path from "path"
 import { fileURLToPath } from "url"
 
@@ -30,6 +31,7 @@ app.get("/api/health", (req, res) => res.status(200).json({ status: "ok" }));
 app.use("/api/auth",authRoutes)
 app.use("/api/user",userRoutes)
 app.use("/api/messages",messageRoutes)
+app.use("/api/stories",storyRoutes)
 
 import fs from "fs"
 

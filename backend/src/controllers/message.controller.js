@@ -33,10 +33,10 @@ export const getMessages = async (req, res) => {
 
 export const sendMessage = async (req, res) => {
     try {
-        const { text, image } = req.body;
-        if (!text && !image) {
+        const { text, image, file, fileName, audio } = req.body;
+        if (!text && !image && !file && !audio) {
             return res.status(400).json({
-                msg: "Message text or image is required",
+                msg: "Message content is required",
                 success: false
             })
         }
@@ -47,11 +47,28 @@ export const sendMessage = async (req, res) => {
             const uploadResponse = await cloudinary.uploader.upload(image);
             imageurl = uploadResponse.secure_url;
         }
+        let fileurl;
+        if (file) {
+            const uploadResponse = await cloudinary.uploader.upload(file, {
+                resource_type: "auto"
+            });
+            fileurl = uploadResponse.secure_url;
+        }
+        let audiourl;
+        if (audio) {
+            const uploadResponse = await cloudinary.uploader.upload(audio, {
+                resource_type: "video"
+            });
+            audiourl = uploadResponse.secure_url;
+        }
         const newMesage = new Message({
             senderId,
             receiverId,
             text,
-            image: imageurl
+            image: imageurl,
+            file: fileurl,
+            fileName,
+            audio: audiourl
         })
         await newMesage.save();
 

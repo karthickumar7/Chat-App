@@ -12,6 +12,7 @@ import { useAuthStore } from "./pages/useAuthStore";
 import { useThemeStore } from "./components/useThemeStore";
 import { Loader } from "lucide-react";
 import { Toaster } from "react-hot-toast";
+import CallOverlay from "./components/CallOverlay";
 
 const App = () => {
   const { authUser, checkAuth, isCheckingAuth } = useAuthStore();
@@ -40,6 +41,7 @@ const App = () => {
         <Route path="/settings" element={authUser ? <SettingsPage /> : <Navigate to="/login" />} />
         <Route path="/profile" element={authUser ? <ProfilePage /> : <Navigate to="/login" />} />
       </Routes>
+      <CallOverlay />
       <Toaster />
     </div>
   );
