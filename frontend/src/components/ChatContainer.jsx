@@ -28,19 +28,22 @@ const ChatContainer = () => {
   const [selectedMessageForReaction, setSelectedMessageForReaction] = useState(null);
 
   useEffect(() => {
+    if (!selectedUser) return;
     getMessages(selectedUser._id);
     subscribeToMessages();
 
     return () => {
       unsubscribeFromMessages();
     };
-  }, [selectedUser._id, getMessages, subscribeToMessages, unsubscribeFromMessages]);
+  }, [selectedUser?._id, getMessages, subscribeToMessages, unsubscribeFromMessages]);
 
   useEffect(() => {
     if (messageEndRef.current && messages) {
       messageEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, typingUsers]);
+
+  if (!selectedUser) return null;
 
   const formatMessageTime = (dateString) => {
     return new Date(dateString).toLocaleTimeString([], {

@@ -8,7 +8,9 @@ const ChatHeader = ({ onToggleSearch, onClearChat }) => {
   const { onlineUsers, startCall } = useAuthStore();
   const [showDropdown, setShowDropdown] = useState(false);
 
-  const isOnline = onlineUsers.includes(selectedUser._id);
+  const isOnline = selectedUser ? onlineUsers.includes(selectedUser._id) : false;
+
+  if (!selectedUser) return null;
 
   return (
     <div className="p-2.5 border-b border-base-300 bg-base-100">
