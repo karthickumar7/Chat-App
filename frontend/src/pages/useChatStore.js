@@ -2,8 +2,10 @@ import { create } from "zustand";
 import toast from "react-hot-toast";
 import { axiosInstance } from "../lib/axios";
 import { useAuthStore } from "./useAuthStore";
+import { useThemeStore } from "../components/useThemeStore";
 
 const playSendSound = () => {
+  if (useThemeStore.getState().soundMuted) return;
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const osc = ctx.createOscillator();
@@ -26,6 +28,7 @@ const playSendSound = () => {
 };
 
 const playReceiveSound = () => {
+  if (useThemeStore.getState().soundMuted) return;
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const osc = ctx.createOscillator();
@@ -72,6 +75,7 @@ export const useChatStore = create((set, get) => ({
     try {
       const res = await axiosInstance.get(`/messages/${userId}`);
       set({ messages: res.data.messages });
+      get().markMessagesAsRead(userId);
     } catch (error) {
       toast.error(error.response?.data?.msg || "Failed to load messages");
     } finally {
@@ -102,6 +106,46 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
+  addReaction: async (messageId, emoji) => {
+    try {
+      const res = await axiosInstance.post(`/messages/react/${messageId}`, { emoji });
+      const updatedMessages = get().messages.map((msg) => {
+        if (msg._id === messageId) {
+          return res.data.message;
+        }
+        return msg;
+      });
+      set({ messages: updatedMessages });
+    } catch (error) {
+      toast.error(error.response?.data?.msg || "Failed to add reaction");
+    }
+  },
+
+  clearChat: async (partnerId) => {
+    try {
+      await axiosInstance.delete(`/messages/clear/${partnerId}`);
+      set({ messages: [] });
+      toast.success("Chat history cleared!");
+    } catch (error) {
+      toast.error(error.response?.data?.msg || "Failed to clear chat");
+    }
+  },
+
+  markMessagesAsRead: async (senderId) => {
+    try {
+      await axiosInstance.put(`/messages/read/${senderId}`);
+      const updatedMessages = get().messages.map((msg) => {
+        if (msg.senderId === senderId) {
+          return { ...msg, isRead: true };
+        }
+        return msg;
+      });
+      set({ messages: updatedMessages });
+    } catch (error) {
+      console.error("Failed to mark as read:", error);
+    }
+  },
+
   subscribeToMessages: () => {
     const { selectedUser } = get();
     if (!selectedUser) return;
@@ -115,6 +159,8 @@ export const useChatStore = create((set, get) => ({
 
       set({ messages: [...get().messages, newMessage] });
       playReceiveSound();
+      // Auto-read incoming message if chat is active
+      get().markMessagesAsRead(selectedUser._id);
     });
 
     socket.on("userTyping", ({ senderId }) => {
@@ -138,6 +184,37 @@ export const useChatStore = create((set, get) => ({
         messages: get().messages.filter((msg) => msg._id !== messageId)
       });
     });
+
+    socket.on("messageReaction", ({ messageId, userId, emoji }) => {
+      const updatedMessages = get().messages.map((msg) => {
+        if (msg._id === messageId) {
+          const reactions = [...(msg.reactions || [])];
+          const existingIdx = reactions.findIndex((r) => r.userId === userId);
+          if (existingIdx > -1) {
+            reactions[existingIdx].emoji = emoji;
+          } else {
+            reactions.push({ userId, emoji });
+          }
+          return { ...msg, reactions };
+        }
+        return msg;
+      });
+      set({ messages: updatedMessages });
+    });
+
+    socket.on("messagesRead", ({ readerId }) => {
+      const updatedMessages = get().messages.map((msg) => {
+        if (msg.receiverId === readerId) {
+          return { ...msg, isRead: true };
+        }
+        return msg;
+      });
+      set({ messages: updatedMessages });
+    });
+
+    socket.on("chatCleared", () => {
+      set({ messages: [] });
+    });
   },
 
   unsubscribeFromMessages: () => {
@@ -147,6 +224,9 @@ export const useChatStore = create((set, get) => ({
     socket.off("userTyping");
     socket.off("userStopTyping");
     socket.off("messageDeleted");
+    socket.off("messageReaction");
+    socket.off("messagesRead");
+    socket.off("chatCleared");
   },
 
   setSelectedUser: (selectedUser) => set({ selectedUser, typingUsers: {} }),

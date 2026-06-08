@@ -26,6 +26,17 @@ const messageSchema=new mongoose.Schema({
     audio:{
         type:String,
     },
+    isRead:{
+        type:Boolean,
+        default:false
+    },
+    reactions:[{
+        userId:{
+            type:mongoose.Schema.Types.ObjectId,
+            ref:"User"
+        },
+        emoji:String
+    }]
 
 },{timestamps:true})
 

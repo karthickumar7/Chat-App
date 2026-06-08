@@ -44,17 +44,17 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("callUser", ({ userToCall, from, name, pic }) => {
+  socket.on("callUser", ({ userToCall, from, name, pic, offer }) => {
     const receiverSocketId = getReceiverSocketId(userToCall);
     if (receiverSocketId) {
-      io.to(receiverSocketId).emit("incomingCall", { from, name, pic });
+      io.to(receiverSocketId).emit("incomingCall", { from, name, pic, offer });
     }
   });
 
-  socket.on("acceptCall", ({ to }) => {
+  socket.on("acceptCall", ({ to, answer }) => {
     const callerSocketId = getReceiverSocketId(to);
     if (callerSocketId) {
-      io.to(callerSocketId).emit("callAccepted");
+      io.to(callerSocketId).emit("callAccepted", { answer });
     }
   });
 
@@ -69,6 +69,13 @@ io.on("connection", (socket) => {
     const otherSocketId = getReceiverSocketId(to);
     if (otherSocketId) {
       io.to(otherSocketId).emit("callEnded");
+    }
+  });
+
+  socket.on("iceCandidate", ({ to, candidate }) => {
+    const partnerSocketId = getReceiverSocketId(to);
+    if (partnerSocketId) {
+      io.to(partnerSocketId).emit("iceCandidate", { candidate });
     }
   });
 

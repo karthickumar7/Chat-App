@@ -114,3 +114,93 @@ export const deleteMessage = async (req, res) => {
         return res.status(500).json({ msg: `deleteMessageError:${err.message}`, success: false });
     }
 };
+
+export const markMessagesAsRead = async (req, res) => {
+    try {
+        const { id: senderId } = req.params;
+        const myId = req.user._id;
+
+        await Message.updateMany(
+            { senderId, receiverId: myId, isRead: false },
+            { $set: { isRead: true } }
+        );
+
+        // Notify the sender in real-time via socket
+        const senderSocketId = getReceiverSocketId(senderId);
+        if (senderSocketId) {
+            io.to(senderSocketId).emit("messagesRead", { readerId: myId, senderId });
+        }
+
+        return res.status(200).json({ success: true });
+    } catch (err) {
+        console.error("Error in markMessagesAsRead: ", err.message);
+        return res.status(500).json({ msg: err.message, success: false });
+    }
+};
+
+export const addReaction = async (req, res) => {
+    try {
+        const { id: messageId } = req.params;
+        const { emoji } = req.body;
+        const myId = req.user._id;
+
+        if (!emoji) {
+            return res.status(400).json({ msg: "Emoji is required", success: false });
+        }
+
+        const message = await Message.findById(messageId);
+        if (!message) {
+            return res.status(404).json({ msg: "Message not found", success: false });
+        }
+
+        // Check if user already reacted
+        const existingReactionIdx = message.reactions.findIndex(
+            (r) => r.userId.toString() === myId.toString()
+        );
+
+        if (existingReactionIdx > -1) {
+            message.reactions[existingReactionIdx].emoji = emoji;
+        } else {
+            message.reactions.push({ userId: myId, emoji });
+        }
+
+        await message.save();
+
+        const receiverSocketId = getReceiverSocketId(message.receiverId);
+        const senderSocketId = getReceiverSocketId(message.senderId);
+
+        const payload = { messageId, userId: myId, emoji };
+        
+        if (receiverSocketId) io.to(receiverSocketId).emit("messageReaction", payload);
+        if (senderSocketId) io.to(senderSocketId).emit("messageReaction", payload);
+
+        return res.status(200).json({ message, success: true });
+    } catch (err) {
+        console.error("Error in addReaction: ", err.message);
+        return res.status(500).json({ msg: err.message, success: false });
+    }
+};
+
+export const clearChat = async (req, res) => {
+    try {
+        const { id: partnerId } = req.params;
+        const myId = req.user._id;
+
+        await Message.deleteMany({
+            $or: [
+                { senderId: myId, receiverId: partnerId },
+                { senderId: partnerId, receiverId: myId }
+            ]
+        });
+
+        const partnerSocketId = getReceiverSocketId(partnerId);
+        if (partnerSocketId) {
+            io.to(partnerSocketId).emit("chatCleared", { clearedBy: myId });
+        }
+
+        return res.status(200).json({ msg: "Chat cleared successfully", success: true });
+    } catch (err) {
+        console.error("Error in clearChat: ", err.message);
+        return res.status(500).json({ msg: err.message, success: false });
+    }
+};

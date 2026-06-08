@@ -2,7 +2,7 @@ import { useThemeStore } from "../components/useThemeStore";
 import { THEMES } from "../components";
 
 const SettingsPage = () => {
-  const { theme, setTheme } = useThemeStore();
+  const { theme, setTheme, soundMuted, toggleSoundMuted } = useThemeStore();
 
   return (
     <div className="h-screen container mx-auto px-4 pt-20 max-w-5xl">
@@ -32,6 +32,22 @@ const SettingsPage = () => {
               </span>
             </button>
           ))}
+        </div>
+
+        {/* Notification Sound Toggle */}
+        <div className="bg-base-200 p-4 rounded-xl space-y-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-sm">Notification Sounds</h3>
+              <p className="text-xs text-base-content/60">Play sound effects for incoming and outgoing messages</p>
+            </div>
+            <input
+              type="checkbox"
+              className="toggle toggle-primary toggle-sm sm:toggle-md"
+              checked={!soundMuted}
+              onChange={toggleSoundMuted}
+            />
+          </div>
         </div>
 
         {/* Preview Section */}

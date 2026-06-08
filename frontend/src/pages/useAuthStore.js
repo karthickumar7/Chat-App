@@ -51,6 +51,9 @@ export const useAuthStore = create((set, get) => ({
   isIncoming: false,
   isCaller: false,
   callPartner: null,
+  offer: null,
+  answer: null,
+  incomingIceCandidate: null,
 
   checkAuth: async () => {
     try {
@@ -168,19 +171,20 @@ export const useAuthStore = create((set, get) => ({
     });
 
     // Real-time voice call signaling handlers
-    newSocket.on("incomingCall", ({ from, name, pic }) => {
+    newSocket.on("incomingCall", ({ from, name, pic, offer }) => {
       set({
         activeCall: true,
         callStatus: "ringing",
         isIncoming: true,
         isCaller: false,
-        callPartner: { _id: from, fullName: name, profilePic: pic }
+        callPartner: { _id: from, fullName: name, profilePic: pic },
+        offer
       });
       playCallRingingSound();
     });
 
-    newSocket.on("callAccepted", () => {
-      set({ callStatus: "connected" });
+    newSocket.on("callAccepted", ({ answer }) => {
+      set({ callStatus: "connected", answer });
       stopAllCallSounds();
     });
 
@@ -190,7 +194,10 @@ export const useAuthStore = create((set, get) => ({
         callStatus: "idle",
         isIncoming: false,
         isCaller: false,
-        callPartner: null
+        callPartner: null,
+        offer: null,
+        answer: null,
+        incomingIceCandidate: null
       });
       stopAllCallSounds();
       toast.error("Call declined");
@@ -202,10 +209,17 @@ export const useAuthStore = create((set, get) => ({
         callStatus: "idle",
         isIncoming: false,
         isCaller: false,
-        callPartner: null
+        callPartner: null,
+        offer: null,
+        answer: null,
+        incomingIceCandidate: null
       });
       stopAllCallSounds();
       toast("Call ended");
+    });
+
+    newSocket.on("iceCandidate", ({ candidate }) => {
+      set({ incomingIceCandidate: candidate });
     });
   },
 
@@ -216,6 +230,7 @@ export const useAuthStore = create((set, get) => ({
       socket.off("callAccepted");
       socket.off("callRejected");
       socket.off("callEnded");
+      socket.off("iceCandidate");
       socket.disconnect();
     }
     stopAllCallSounds();
@@ -225,11 +240,14 @@ export const useAuthStore = create((set, get) => ({
       callStatus: "idle",
       isIncoming: false,
       isCaller: false,
-      callPartner: null
+      callPartner: null,
+      offer: null,
+      answer: null,
+      incomingIceCandidate: null
     });
   },
 
-  startCall: (userToCall) => {
+  startCall: (userToCall, offer) => {
     const { socket, authUser } = get();
     if (!socket || !authUser) return;
 
@@ -238,25 +256,27 @@ export const useAuthStore = create((set, get) => ({
       callStatus: "calling",
       isIncoming: false,
       isCaller: true,
-      callPartner: userToCall
+      callPartner: userToCall,
+      offer
     });
 
     socket.emit("callUser", {
       userToCall: userToCall._id,
       from: authUser._id,
       name: authUser.fullName,
-      pic: authUser.profilePic
+      pic: authUser.profilePic,
+      offer
     });
 
     playCallRingingSound();
   },
 
-  acceptIncomingCall: () => {
+  acceptIncomingCall: (answer) => {
     const { socket, callPartner } = get();
     if (!socket || !callPartner) return;
 
-    set({ callStatus: "connected" });
-    socket.emit("acceptCall", { to: callPartner._id });
+    set({ callStatus: "connected", answer });
+    socket.emit("acceptCall", { to: callPartner._id, answer });
     stopAllCallSounds();
   },
 
@@ -269,7 +289,10 @@ export const useAuthStore = create((set, get) => ({
       callStatus: "idle",
       isIncoming: false,
       isCaller: false,
-      callPartner: null
+      callPartner: null,
+      offer: null,
+      answer: null,
+      incomingIceCandidate: null
     });
 
     socket.emit("rejectCall", { to: callPartner._id });
@@ -285,7 +308,10 @@ export const useAuthStore = create((set, get) => ({
       callStatus: "idle",
       isIncoming: false,
       isCaller: false,
-      callPartner: null
+      callPartner: null,
+      offer: null,
+      answer: null,
+      incomingIceCandidate: null
     });
 
     socket.emit("endCall", { to: callPartner._id });
